@@ -11,7 +11,7 @@ BEGIN
 			VALUE "FileDescription", "Did I mention kittens?"
 			VALUE "FileVersion", "1, 0, 0, 0"
 			VALUE "InternalName", "kittens"
-			VALUE "LegalCopyright", "©2012 Daniel Burke"
+			VALUE "LegalCopyright", "ï¿½2012-2016 Daniel Burke"
 			VALUE "ProductName", "Kittens"
 			VALUE "ProductVersion", "1, 0, 0, 0"
 		END
