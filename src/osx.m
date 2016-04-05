@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2015-2016 Daniel Burke
+Copyright (c) 2015 Daniel Burke
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -42,6 +42,7 @@ freely, subject to the following restrictions:
 int killme=0;
 int sys_width  = 1980;	/* dimensions of default screen */
 int sys_height = 1200;
+float sys_dpi = 1.0;
 int vid_width  = 1280;	/* dimensions of our part of the screen */
 int vid_height = 720;
 int mouse_x = 0;
@@ -57,8 +58,6 @@ char keys[KEYMAX];
 
 int fullscreen = 0;
 int fullscreen_toggle = 0;
-
-float bsFactor = 1.0;	// the "Backing Scale Factor"
 
 int main_init(int argc, const char *argv[]);
 void main_loop(void);
@@ -141,7 +140,7 @@ static int y_correction = 0;  // to correct mouse position for title bar
 {
 	vid_width = [self convertRectToBacking:[self bounds]].size.width;
 	vid_height = [self convertRectToBacking:[self bounds]].size.height;
-	y_correction = bsFactor * [[[self window] contentView] frame].size.height - vid_height;
+	y_correction = sys_dpi * [[[self window] contentView] frame].size.height - vid_height;
 	if(vid_height == 0) vid_height = 1;
 	glViewport(0, y_correction, vid_width, vid_height);
 }
@@ -152,7 +151,7 @@ static int y_correction = 0;  // to correct mouse position for title bar
 	GLint vsync = 0;
 
 	[self setWantsBestResolutionOpenGLSurface:YES];   // enable retina resolutions
-	bsFactor = [self.window backingScaleFactor];
+	sys_dpi = [self.window backingScaleFactor];
 	[[self openGLContext] setValues:&vsync forParameter:NSOpenGLCPSwapInterval];
 #ifdef CVDISPLAYLINK
 	// Use a CVDisplayLink to do the render loop
@@ -517,11 +516,11 @@ void gamepadAction(void* inContext, IOReturn inResult,
 		break;
 	case 50: // LT
 		joy[i].lt = value;
-//		joy[i].fflarge = value;
 		break;
 	case 53: // RT
 		joy[i].rt = value;
-//		joy[i].ffsmall = value;
+		break;
+	case -1: // Gets fired occasionally on connect
 		break;
 	default:
 		printf("usage = %d, page = %d, value = %d\n", usage, page, (int)value);
@@ -552,10 +551,10 @@ void gamepadAction(void* inContext, IOReturn inResult,
 
 static void mouse_move(NSEvent * theEvent)
 {
-	mouse_x = theEvent.locationInWindow.x * bsFactor;
-	mouse_y = vid_height-(theEvent.locationInWindow.y + y_correction) * bsFactor;
-	mickey_x -= theEvent.deltaX * bsFactor;
-	mickey_y -= theEvent.deltaY * bsFactor;
+	mouse_x = theEvent.locationInWindow.x * sys_dpi;
+	mouse_y = vid_height-(theEvent.locationInWindow.y + y_correction) * sys_dpi;
+	mickey_x -= theEvent.deltaX * sys_dpi;
+	mickey_y -= theEvent.deltaY * sys_dpi;
 }
 
 @implementation MyApp

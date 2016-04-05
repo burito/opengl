@@ -1,7 +1,7 @@
 CFLAGS = -g -std=c99 -Wall -pedantic -Isrc
 
 PLATFORM = 
-LIBRARIES = -lm -lOpenCL
+LIBRARIES = 
 SDIR = src
 
 OBJS = $(PLATFORM) main.o
@@ -10,12 +10,12 @@ OBJS = $(PLATFORM) main.o
 WDIR = build/win
 _WOBJS = $(OBJS) GL/glew.o win32.o win32.res
 WOBJS = $(patsubst %,$(WDIR)/%,$(_WOBJS))
-WLIBS = $(LIBRARIES) -lgdi32 -lopengl32 -lwinmm -lws2_32 -lOpenCL -lxinput9_1_0
+WLIBS = $(LIBRARIES) -lshell32 -luser32 -lgdi32 -lopengl32 -lwinmm -lws2_32 -lxinput9_1_0
 #	-L"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\lib\x64"
 #	-L"C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86_64"
 
 LDIR = build/lin
-LCC = gcc
+LCC = clang
 _LOBJS = $(OBJS) GL/glew.o x11.o
 LOBJS = $(patsubst %,$(LDIR)/%,$(_LOBJS))
 LLIBS = $(LIBRARIES) -lGL -lX11 -lGLU -lXi -ldl
@@ -25,7 +25,7 @@ MCC = clang
 _MOBJS = $(OBJS)
 MFLAGS = -Wall
 MOBJS = $(patsubst %,$(MDIR)/%,$(_MOBJS))
-MLIBS = -F/System/Library/Frameworks -framework OpenGL -framework CoreVideo -framework Cocoa -framework OpenCL -framework IOKit -framework ForceFeedback
+MLIBS = -F/System/Library/Frameworks -framework OpenGL -framework CoreVideo -framework Cocoa -framework IOKit -framework ForceFeedback
 
 
 # Evil platform detection magic
@@ -38,7 +38,7 @@ WINDRES = x86_64-w64-mingw32-windres
 #WINDRES = i686-w64-mingw32-windres
 endif
 ifeq ($(findstring MINGW, $(UNAME)), MINGW)
-WCC = gcc
+WCC = clang
 WINDRES = windres
 default: gui.exe
 endif

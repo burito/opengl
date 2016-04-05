@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2016 Daniel Burke
+Copyright (c) 2012 Daniel Burke
 
 This software is provided 'as-is', without any express or implied
 warranty. In no event will the authors be held liable for any damages
@@ -24,6 +24,7 @@ freely, subject to the following restrictions:
 #include <windows.h>
 #include <Xinput.h>
 #include <GL/glew.h>
+#include <GL/wglew.h>
 #include <stdio.h>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -35,6 +36,7 @@ freely, subject to the following restrictions:
 int killme=0;
 int sys_width  = 1980;	/* dimensions of default screen */
 int sys_height = 1200;
+float sys_dpi = 1.0;
 int vid_width  = 1280;	/* dimensions of our part of the screen */
 int vid_height = 720;
 int mouse_x = 0;
@@ -73,7 +75,7 @@ typedef struct joystick
 	int connected;
 	struct fvec2 l, r;
 	float lt, rt;
-	int button[15];
+	int button[16];
 	int fflarge, ffsmall;
 } joystick;
 
@@ -95,7 +97,7 @@ int win_height = 0;
 int window_maximized = 0;
 int focus = 1;
 int menu = 1;
-int sys_bpp = 24;
+int sys_bpp = 32;
 
 static void fail(const char * string)
 {
@@ -231,6 +233,16 @@ static LONG WINAPI wProc(HWND hWndProc, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
+	case 0x02E0:	// WM_DPICHANGED
+		sys_dpi =(float)LOWORD(wParam) / 96.0; // dpi-X
+//		sys_dpi = HIWORD(wParam);	// dpi-Y
+		RECT *r = (RECT*)lParam;
+		SetWindowPos(hWnd, HWND_TOP, 0, 0,
+			r->left - r->right,
+			r->top - r->bottom,
+			SWP_NOMOVE);
+		return 0;
+
 	case WM_CLOSE:
 		killme=1;
 		return 0;
@@ -240,7 +252,7 @@ static LONG WINAPI wProc(HWND hWndProc, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void win_pixelformat(void)
 {
-	unsigned char bpp = 24;
+	unsigned char bpp = 32;
 	PIXELFORMATDESCRIPTOR pfd = {
 		sizeof(PIXELFORMATDESCRIPTOR),
 		1,				// version number
@@ -325,11 +337,30 @@ static void win_toggle(void)
 	UpdateWindow(hWnd);
 }
 
+
 char *winClassName = "Kittens";
 static void win_init(void)
 {
 	memset(keys, 0, KEYMAX);
 	memset(joy, 0, sizeof(joystick)*4);
+
+	HMODULE l = LoadLibrary("shcore.dll");
+	if(NULL != l)
+	{
+		void (*SetProcessDpiAwareness)() =
+			(void(*)())GetProcAddress(l, "SetProcessDpiAwareness");
+
+		void (*GetDpiForMonitor)() =
+			(void(*)())GetProcAddress(l, "GetDpiForMonitor");
+
+		SetProcessDpiAwareness(2);// 2 = Process_Per_Monitor_DPI_Aware
+		int dpi_x=0, dpi_y=0;
+		POINT p = {1, 1};
+		HMONITOR hmon = MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY);
+		GetDpiForMonitor(hmon, 0, &dpi_x, &dpi_y);
+		FreeLibrary(l);
+		sys_dpi = (float)dpi_x / 96.0;
+	}
 
 	WNDCLASSEX wc;
 	wc.cbSize	= sizeof(WNDCLASSEX);
@@ -351,7 +382,7 @@ static void win_init(void)
 		return;
 	}
 
-	hWnd = CreateWindowEx(0, winClassName, "Kittens",
+	hWnd = CreateWindowEx(0, "Kittens", "Kittens",
 		WS_TILEDWINDOW, //|WS_CLIPSIBLINGS|WS_CLIPCHILDREN,
 		50,50,vid_width,vid_height,NULL,NULL,hInst,NULL);
 
@@ -366,19 +397,37 @@ static void win_init(void)
 
 	win_pixelformat();
 
-	hGLRC = wglCreateContext(hDC);
-	if(!hGLRC)
+	HGLRC tmpGLRC;
+
+	tmpGLRC = wglCreateContext(hDC);
+	if(!tmpGLRC)
 	{
 		fail("wglCreateContext() failed");
 		return;
 	}
-	if(!wglMakeCurrent(hDC, hGLRC))
+	if(!wglMakeCurrent(hDC, tmpGLRC))
 	{
 		fail("wglMakeCurrent() failed");
 		return;
 	}
+	glewInit();
+	GLint glattrib[] = {
+		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 1,
+//		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+		WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
+		0 };
 
-	ReleaseDC(hWnd, hDC);
+	if(1 == wglewIsSupported("WGL_ARB_create_context"))
+	{
+		hGLRC = wglCreateContextAttribsARB(hDC, 0, glattrib);
+		wglMakeCurrent(NULL, NULL);
+		wglDeleteContext(tmpGLRC);
+		wglMakeCurrent(hDC, hGLRC);
+	}
+	else hGLRC = tmpGLRC;
+//	ReleaseDC(hWnd, hDC);
 }
 
 static void win_end(void)
@@ -451,7 +500,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPrev,
 #undef ARGC_MAX
 
 	win_init();
-	glewInit();
 	int ret = main_init(argc, argv);
 	for(int i=0; i<argc; i++)free(argv[i]); /* delete args */
 	if(ret)
